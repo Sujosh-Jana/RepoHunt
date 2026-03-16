@@ -15,7 +15,7 @@ Instead of scrolling through hundreds of results on GitHub search, RepoHunt rank
 ![Results UI](screenshots/results.png)
 
 ### AI Repository Summary
-![AI Summary](screenshots/ai-summary.png)
+![AI Summary](screenshots/ai-summary.jpg)
 
 ---
 
