@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RepoHunt — Smart GitHub Discovery</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #050508;
+    --bg2:      #08080e;
+    --bg3:      #0f0f18;
+    --surface:  #0d0d15;
+    --surface2: #13131e;
+    --border:   rgba(255,255,255,0.06);
+    --border2:  rgba(255,255,255,0.11);
+    --text:     #ddddf0;
+    --muted:    #5a5a80;
+    --accent:   #7c6dff;
+    --accent2:  #a99fff;
+    --accent3:  #cdc8ff;
+    --green:    #2ecc71;
+    --amber:    #f0a500;
+    --red:      #ff4d4d;
+    --cyan:     #00e5cc;
+    --glow:     rgba(124,109,255,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(124,109,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,109,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ORBS */
+  .orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; }
+  .orb1 {
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(124,109,255,0.14) 0%, transparent 70%);
+    top: -250px; left: -180px;
+  }
+  .orb2 {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,229,204,0.08) 0%, transparent 70%);
+    bottom: -150px; right: -150px;
+  }
+  .orb3 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(124,109,255,0.07) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  /* HEADER */
+  header { padding: 52px 0 0; text-align: center; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 36px; }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 0 18px rgba(124,109,255,0.55);
+  }
+  .logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent2); }
+
+  h1 {
+    font-size: clamp(26px, 5vw, 52px);
+    font-weight: 800; line-height: 1.1; letter-spacing: -1px; margin-bottom: 14px;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    filter: drop-shadow(0 0 22px rgba(124,109,255,0.45));
+  }
+  .subtitle { font-size: 12px; color: var(--muted); font-weight: 400; margin-bottom: 40px; letter-spacing: 0.3px; }
+
+  /* SEARCH */
+  .search-wrap { position: relative; margin-bottom: 20px; }
+  .search-bar {
+    display: flex; background: var(--surface);
+    border: 1px solid var(--border2); border-radius: 14px;
+    overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-bar:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow), 0 0 35px rgba(124,109,255,0.14);
+  }
+  #q {
+    flex: 1; background: transparent; border: none; outline: none;
+    padding: 17px 20px; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; color: var(--text); font-weight: 500;
+  }
+  #q::placeholder { color: var(--muted); font-weight: 400; }
+  #go {
+    background: linear-gradient(135deg, var(--accent), #4a3acc);
+    color: white; border: none; padding: 17px 26px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.5px; transition: opacity 0.2s; white-space: nowrap;
+  }
+  #go:hover { opacity: 0.87; }
+  #go:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* CHIPS */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin-bottom: 36px; }
+  .chip {
+    padding: 5px 13px; border-radius: 100px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); font-size: 11px; font-weight: 500; cursor: pointer;
+    transition: all 0.15s; font-family: 'JetBrains Mono', monospace;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent2); background: var(--bg3); box-shadow: 0 0 12px rgba(124,109,255,0.18); }
+
+  /* FILTERS */
+  #filters {
+    display: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; margin-bottom: 22px;
+    gap: 20px; flex-wrap: wrap; align-items: flex-end;
+  }
+  #filters.show { display: flex; }
+  .filter-group { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+  .filter-group label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .filter-group select, .filter-group input {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text); outline: none; transition: border-color 0.15s;
+  }
+  .filter-group select:focus, .filter-group input:focus { border-color: var(--accent); }
+  .filter-group select option { background: var(--bg3); }
+  .filter-toggle {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 6px 14px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: all 0.15s; margin: 0 auto 20px;
+  }
+  .filter-toggle:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* STATS */
+  #stats-bar { display: none; align-items: center; justify-content: space-between; margin-bottom: 18px; padding: 0 2px; }
+  #stats-bar.show { display: flex; }
+  .stats-text { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .stats-text strong { color: var(--text); }
+  .sort-wrap { display: flex; gap: 5px; align-items: center; }
+  .sort-label { font-size: 11px; color: var(--muted); }
+  .sort-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: all 0.15s;
+  }
+  .sort-btn.active, .sort-btn:hover { border-color: var(--accent); color: var(--accent2); background: var(--bg3); }
+
+  /* RESULTS */
+  #results { display: flex; flex-direction: column; gap: 12px; margin-bottom: 60px; }
+
+  /* CARD */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 22px; transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s;
+    animation: fadeUp 0.35s ease both; position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--cyan), transparent);
+    opacity: 0; transition: opacity 0.25s;
+  }
+  .card:hover {
+    border-color: rgba(124,109,255,0.35);
+    box-shadow: 0 0 28px rgba(124,109,255,0.1), 0 0 60px rgba(124,109,255,0.04);
+    transform: translateY(-1px);
+  }
+  .card:hover::before { opacity: 1; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  .card:nth-child(1){animation-delay:.04s} .card:nth-child(2){animation-delay:.08s}
+  .card:nth-child(3){animation-delay:.12s} .card:nth-child(4){animation-delay:.16s}
+  .card:nth-child(5){animation-delay:.20s} .card:nth-child(n+6){animation-delay:.24s}
+
+  .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .card-left { flex:1; min-width:0; }
+  .repo-name { font-size:15px; font-weight:700; letter-spacing:-0.3px; margin-bottom:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .repo-name a { color:var(--text); text-decoration:none; transition:color 0.15s, text-shadow 0.15s; }
+  .repo-name a:hover { color:var(--accent2); text-shadow:0 0 14px rgba(124,109,255,0.4); }
+  .repo-owner { color:var(--muted); font-weight:500; }
+  .repo-owner::after { content:' / '; }
+
+  /* SCORE */
+  .score-badge {
+    flex-shrink:0; width:46px; height:46px; border-radius:11px;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    font-size:17px; font-weight:800; font-family:'JetBrains Mono',monospace; border:1px solid;
+  }
+  .score-badge .score-label { font-size:8px; font-weight:600; margin-top:1px; }
+  .score-s { background:rgba(124,109,255,0.1); border-color:rgba(124,109,255,0.5); color:var(--accent2); box-shadow:0 0 16px rgba(124,109,255,0.22); }
+  .score-a { background:rgba(46,204,113,0.08); border-color:rgba(46,204,113,0.4); color:var(--green); box-shadow:0 0 14px rgba(46,204,113,0.16); }
+  .score-b { background:rgba(0,229,204,0.08); border-color:rgba(0,229,204,0.35); color:var(--cyan); box-shadow:0 0 14px rgba(0,229,204,0.13); }
+  .score-c { background:rgba(240,165,0,0.08); border-color:rgba(240,165,0,0.35); color:var(--amber); }
+  .score-d { background:rgba(255,77,77,0.08); border-color:rgba(255,77,77,0.3); color:var(--red); }
+
+  /* TAGS */
+  .tags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; }
+  .tag { padding:2px 8px; border-radius:5px; font-size:10px; font-weight:600; font-family:'JetBrains Mono',monospace; letter-spacing:0.2px; }
+  .tag-lang { background:rgba(124,109,255,0.12); color:var(--accent2); border:1px solid rgba(124,109,255,0.2); }
+  .tag-star { background:rgba(240,165,0,0.1); color:var(--amber); border:1px solid rgba(240,165,0,0.18); }
+  .tag-fork { background:rgba(0,229,204,0.08); color:var(--cyan); border:1px solid rgba(0,229,204,0.15); }
+  .tag-updated { background:rgba(46,204,113,0.08); color:#4edd8a; border:1px solid rgba(46,204,113,0.15); }
+  .tag-updated.stale { background:rgba(255,77,77,0.08); color:#ff7a7a; border:1px solid rgba(255,77,77,0.15); }
+  .tag-hot { background:rgba(255,77,77,0.08); color:#ff7a7a; border:1px solid rgba(255,77,77,0.15); }
+
+  .repo-desc { font-size:12px; color:var(--muted); line-height:1.65; margin-bottom:10px; font-weight:400; }
+
+  /* AI SUMMARY */
+  .ai-summary {
+    background:rgba(124,109,255,0.04); border:1px solid rgba(124,109,255,0.14);
+    border-left:2px solid var(--accent); border-radius:8px; padding:9px 13px;
+    font-size:12px; line-height:1.65; color:var(--text); margin-top:10px;
+  }
+  .ai-label { display:flex; align-items:center; gap:6px; font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--accent2); margin-bottom:5px; }
+  .ai-label::before { content:''; width:6px; height:6px; background:var(--accent); border-radius:50%; animation:pulse 1.4s ease infinite; box-shadow:0 0 6px var(--accent); }
+  .ai-summary.loaded .ai-label::before { animation:none; background:var(--green); box-shadow:0 0 6px var(--green); }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+
+  /* FOOTER */
+  .card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding-top:12px; border-top:1px solid var(--border); gap:12px; flex-wrap:wrap; }
+  .topics { display:flex; flex-wrap:wrap; gap:4px; }
+  .topic { padding:2px 7px; background:var(--bg3); border:1px solid var(--border); border-radius:100px; font-size:10px; color:var(--muted); }
+  .gh-link {
+    display:flex; align-items:center; gap:5px; color:var(--muted); text-decoration:none;
+    font-size:11px; font-weight:600; padding:5px 11px; border:1px solid var(--border); border-radius:7px;
+    transition:all 0.15s; white-space:nowrap; flex-shrink:0;
+  }
+  .gh-link:hover { border-color:rgba(124,109,255,0.4); color:var(--accent2); box-shadow:0 0 10px rgba(124,109,255,0.14); }
+
+  /* LOADER */
+  #loader { display:none; flex-direction:column; align-items:center; gap:14px; padding:60px 0; color:var(--muted); font-size:12px; }
+  #loader.show { display:flex; }
+  .spinner { width:28px; height:28px; border:1.5px solid var(--border2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; box-shadow:0 0 14px rgba(124,109,255,0.22); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  #empty { display:none; text-align:center; padding:60px 0; color:var(--muted); }
+  #empty.show { display:block; }
+  #empty h3 { font-size:16px; font-weight:600; margin-bottom:8px; color:var(--text); }
+  #error-msg { display:none; background:rgba(255,77,77,0.06); border:1px solid rgba(255,77,77,0.18); border-radius:10px; padding:12px 16px; font-size:12px; color:#ff7a7a; margin-bottom:18px; }
+  #error-msg.show { display:block; }
+
+  .featured-badge { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; padding:2px 7px; border-radius:4px; background:linear-gradient(135deg,var(--accent),#4433bb); color:white; box-shadow:0 0 10px rgba(124,109,255,0.38); }
+
+  /* ── API KEY MODAL ── */
+  #key-overlay {
+    position:fixed; inset:0; z-index:100;
+    background:rgba(5,5,8,0.93);
+    display:flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(8px);
+  }
+  #key-overlay.hidden { display:none; }
+  .key-modal {
+    background:var(--surface2); border:1px solid rgba(124,109,255,0.22); border-radius:16px;
+    padding:36px 32px; max-width:460px; width:90%;
+    box-shadow:0 0 60px rgba(124,109,255,0.18), 0 0 120px rgba(124,109,255,0.07);
+    text-align:center;
+  }
+  .modal-icon { font-size:28px; margin-bottom:16px; display:block; filter:drop-shadow(0 0 12px rgba(124,109,255,0.55)); }
+  .key-modal h2 { font-size:18px; font-weight:700; margin-bottom:8px; letter-spacing:-0.5px; }
+  .key-modal p { font-size:12px; color:var(--muted); line-height:1.75; margin-bottom:24px; }
+  .key-modal p a { color:var(--accent2); text-decoration:none; }
+  .key-modal p a:hover { text-decoration:underline; }
+  .key-input-wrap {
+    display:flex; background:var(--bg3); border:1px solid var(--border2);
+    border-radius:10px; overflow:hidden; margin-bottom:12px;
+    transition:border-color 0.2s, box-shadow 0.2s;
+  }
+  .key-input-wrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+  #key-input {
+    flex:1; background:transparent; border:none; outline:none;
+    padding:13px 14px; font-family:'JetBrains Mono',monospace;
+    font-size:12px; color:var(--text); font-weight:500;
+  }
+  #key-input::placeholder { color:var(--muted); }
+  #key-save {
+    background:linear-gradient(135deg,var(--accent),#4433bb); color:white; border:none;
+    padding:13px 20px; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
+    cursor:pointer; transition:opacity 0.2s; white-space:nowrap;
+  }
+  #key-save:hover { opacity:0.85; }
+  .key-note { font-size:10px; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:5px; }
+
+  /* CHANGE KEY */
+  #change-key-btn {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'JetBrains Mono',monospace; font-size:10px; padding:4px 10px;
+    border-radius:6px; cursor:pointer; transition:all 0.15s; display:block; margin:0 auto 24px;
+  }
+  #change-key-btn:hover { border-color:var(--accent); color:var(--accent2); }
+
+  ::-webkit-scrollbar { width:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+  @media (max-width:600px) {
+    .card-top { flex-direction:column-reverse; }
+    .score-badge { width:40px; height:40px; font-size:14px; align-self:flex-end; }
+    #go { padding:17px 16px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- API KEY MODAL -->
+<div id="key-overlay">
+  <div class="key-modal">
+    <span class="modal-icon">🔑</span>
+    <h2>enter your groq api key</h2>
+    <p>
+      RepoHunt uses Groq to generate AI repo summaries.<br>
+      Your key is stored only in <code style="color:var(--accent2);font-family:inherit">localStorage</code> — never sent anywhere else.<br><br>
+      Get a free key at <a href="https://console.groq.com" target="_blank">console.groq.com</a>
+    </p>
+    <div class="key-input-wrap">
+      <input id="key-input" type="password" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+      <button id="key-save" onclick="saveKey()">Save →</button>
+    </div>
+    <p class="key-note">🔒 stored locally, never transmitted</p>
+  </div>
+</div>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📡</div>
+      <div class="logo-text">Repo<span>Hunt</span></div>
+    </div>
+    <h1>find the <em>best</em> repos<br>for anything</h1>
+    <p class="subtitle">// smarter than github search. ranked + summarized by AI.</p>
+  </header>
+
+  <div class="search-wrap">
+    <div class="search-bar">
+      <input id="q" type="text" placeholder="$ search repos — trading bot, Unity save system, Python scraper..." autocomplete="off">
+      <button id="go" onclick="search()">Search →</button>
+    </div>
+  </div>
+
+  <div class="chips">
+    <button class="chip" onclick="quickSearch('trading bot')">trading bot</button>
+    <button class="chip" onclick="quickSearch('admin dashboard HTML')">admin dashboard</button>
+    <button class="chip" onclick="quickSearch('Python backtesting')">Python backtesting</button>
+    <button class="chip" onclick="quickSearch('Unity save system')">Unity save system</button>
+    <button class="chip" onclick="quickSearch('open source AI agent')">AI agent</button>
+    <button class="chip" onclick="quickSearch('web scraper Python')">web scraper</button>
+    <button class="chip" onclick="quickSearch('realtime chat app')">realtime chat</button>
+    <button class="chip" onclick="quickSearch('markdown editor')">markdown editor</button>
+  </div>
+
+  <button id="change-key-btn" onclick="showKeyModal()">⚙ change api key</button>
+
+  <button class="filter-toggle" onclick="toggleFilters()">
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h14v1.5L9 9v5.5L7 13V9L1 4.5V3z"/></svg>
+    Filters
+  </button>
+
+  <div id="filters">
+    <div class="filter-group">
+      <label>Language</label>
+      <select id="f-lang">
+        <option value="">Any language</option>
+        <option>Python</option><option>JavaScript</option><option>TypeScript</option>
+        <option>Go</option><option>Rust</option><option>C#</option>
+        <option>Java</option><option>C++</option><option>Ruby</option><option>Swift</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Min Stars</label>
+      <select id="f-stars">
+        <option value="0">Any</option>
+        <option value="50">50+</option><option value="100">100+</option>
+        <option value="500">500+</option><option value="1000">1k+</option><option value="5000">5k+</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Last Updated</label>
+      <select id="f-updated">
+        <option value="">Any time</option>
+        <option value="1">Last month</option><option value="3">Last 3 months</option>
+        <option value="6">Last 6 months</option><option value="12">Last year</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Exclude Forks</label>
+      <select id="f-forks">
+        <option value="false">Include forks</option>
+        <option value="true">No forks</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="stats-bar">
+    <div class="stats-text" id="stats-text"></div>
+    <div class="sort-wrap">
+      <span class="sort-label">sort:</span>
+      <button class="sort-btn active" id="sort-score" onclick="sortBy('score')">Score</button>
+      <button class="sort-btn" id="sort-stars" onclick="sortBy('stars')">Stars</button>
+      <button class="sort-btn" id="sort-recent" onclick="sortBy('recent')">Recent</button>
+    </div>
+  </div>
+
+  <div id="error-msg"></div>
+  <div id="loader"><div class="spinner"></div><div id="loader-text">searching github...</div></div>
+  <div id="empty"><h3>no repos found</h3><p>try a different query or loosen the filters.</p></div>
+  <div id="results"></div>
+</div>
+
+<script>
+const GROQ_MODEL = 'llama-3.1-8b-instant';
+let GROQ_KEY = '';
+let allRepos = [];
+let currentSort = 'score';
+
+function loadKey() {
+  const stored = localStorage.getItem('repohunt_groq_key');
+  if (stored) { GROQ_KEY = stored; document.getElementById('key-overlay').classList.add('hidden'); }
+}
+
+function saveKey() {
+  const val = document.getElementById('key-input').value.trim();
+  if (!val) return;
+  GROQ_KEY = val;
+  localStorage.setItem('repohunt_groq_key', val);
+  document.getElementById('key-overlay').classList.add('hidden');
+}
+
+function showKeyModal() {
+  document.getElementById('key-input').value = GROQ_KEY;
+  document.getElementById('key-overlay').classList.remove('hidden');
+}
+
+document.getElementById('key-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
+document.getElementById('key-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('key-overlay') && GROQ_KEY)
+    document.getElementById('key-overlay').classList.add('hidden');
+});
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+
+function quickSearch(q) { document.getElementById('q').value = q; search(); }
+function toggleFilters() { document.getElementById('filters').classList.toggle('show'); }
+
+function sortBy(type) {
+  currentSort = type;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + type).classList.add('active');
+  renderRepos(allRepos);
+}
+
+function getSortedRepos(repos) {
+  return [...repos].sort((a, b) => {
+    if (currentSort === 'stars') return b.stargazers_count - a.stargazers_count;
+    if (currentSort === 'recent') return new Date(b.pushed_at) - new Date(a.pushed_at);
+    return b._score - a._score;
+  });
+}
+
+function scoreRepo(repo, query) {
+  let score = 0;
+  const monthsAgo = (Date.now() - new Date(repo.pushed_at)) / (1000*60*60*24*30);
+  const stars = repo.stargazers_count;
+  score += Math.min(40, Math.log10(stars+1)*14);
+  if (monthsAgo < 1) score += 25; else if (monthsAgo < 3) score += 20;
+  else if (monthsAgo < 6) score += 15; else if (monthsAgo < 12) score += 8; else if (monthsAgo < 24) score += 3;
+  if (repo.description && repo.description.length > 20) score += 5;
+  if (repo.topics && repo.topics.length > 0) score += 5;
+  if (!repo.fork) score += 5;
+  const issues = repo.open_issues_count || 0;
+  if (issues > 0 && issues < 500) score += Math.min(5, issues/20);
+  if (repo.license) score += 5;
+  if (stars < 1000 && monthsAgo < 6) score += 5;
+  const qw = query.toLowerCase().split(/\s+/);
+  const nd = ((repo.name||'')+' '+(repo.description||'')+' '+(repo.topics||[]).join(' ')).toLowerCase();
+  let rel = 0; qw.forEach(w => { if (nd.includes(w)) rel += 5; });
+  score += Math.min(20, rel);
+  return Math.round(Math.min(100, score));
+}
+
+function scoreGrade(s) {
+  if (s >= 85) return {grade:'S',cls:'score-s'};
+  if (s >= 70) return {grade:'A',cls:'score-a'};
+  if (s >= 55) return {grade:'B',cls:'score-b'};
+  if (s >= 40) return {grade:'C',cls:'score-c'};
+  return {grade:'D',cls:'score-d'};
+}
+
+function formatNumber(n) { return n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'')+'k' : String(n); }
+
+function timeAgo(d) {
+  const days = Math.floor((Date.now()-new Date(d))/86400000);
+  if (days < 7) return days <= 1 ? 'today' : days+'d ago';
+  if (days < 30) return Math.floor(days/7)+'w ago';
+  if (days < 365) return Math.floor(days/30)+'mo ago';
+  return Math.floor(days/365)+'y ago';
+}
+
+function isStale(d) { return (Date.now()-new Date(d))/(1000*60*60*24*30) > 18; }
+
+async function search() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  if (!GROQ_KEY) { showKeyModal(); return; }
+
+  const lang = document.getElementById('f-lang').value;
+  const minStars = parseInt(document.getElementById('f-stars').value)||0;
+  const updatedMonths = document.getElementById('f-updated').value;
+  const noForks = document.getElementById('f-forks').value === 'true';
+
+  setLoading(true);
+  document.getElementById('error-msg').classList.remove('show');
+  document.getElementById('empty').classList.remove('show');
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('stats-bar').classList.remove('show');
+
+  try {
+    let ghQ = q;
+    if (lang) ghQ += ` language:${lang}`;
+    if (noForks) ghQ += ' fork:false';
+    if (updatedMonths) {
+      const d = new Date(); d.setMonth(d.getMonth()-parseInt(updatedMonths));
+      ghQ += ` pushed:>${d.toISOString().split('T')[0]}`;
+    }
+    if (minStars > 0) ghQ += ` stars:>=${minStars}`;
+
+    setLoaderText('searching github...');
+    const ghRes = await fetch(
+      `https://api.github.com/search/repositories?q=${encodeURIComponent(ghQ)}&sort=stars&per_page=30&order=desc`,
+      { headers: { 'Accept': 'application/vnd.github+json' } }
+    );
+    if (!ghRes.ok) { const e = await ghRes.json(); throw new Error(e.message||'GitHub API error'); }
+
+    const data = await ghRes.json();
+    let repos = (data.items||[]).map(r => ({...r, _score: scoreRepo(r, q)}));
+    if (minStars > 0) repos = repos.filter(r => r.stargazers_count >= minStars);
+    allRepos = repos;
+
+    if (!repos.length) { setLoading(false); document.getElementById('empty').classList.add('show'); return; }
+
+    setLoaderText('ranking repos...');
+    const sorted = getSortedRepos(repos);
+    setLoading(false);
+    document.getElementById('stats-bar').classList.add('show');
+    document.getElementById('stats-text').innerHTML = `found <strong>${repos.length}</strong> repos for "<strong>${q}</strong>"`;
+    renderRepos(repos);
+    generateAISummaries(sorted.slice(0, 8), q);
+
+  } catch(e) {
+    setLoading(false);
+    const msg = document.getElementById('error-msg');
+    msg.textContent = '⚠ ' + (e.message||'something went wrong. try again.');
+    msg.classList.add('show');
+  }
+}
+
+function renderRepos(repos) {
+  const c = document.getElementById('results');
+  c.innerHTML = '';
+  getSortedRepos(repos).forEach((r,i) => c.appendChild(buildCard(r,i)));
+}
+
+const GH_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>`;
+
+function buildCard(repo, index) {
+  const {grade,cls} = scoreGrade(repo._score);
+  const stale = isStale(repo.pushed_at);
+  const div = document.createElement('div');
+  div.className = 'card'; div.id = 'card-'+repo.id;
+  const topics = (repo.topics||[]).slice(0,5).map(t=>`<span class="topic">${t}</span>`).join('');
+  div.innerHTML = `
+    <div class="card-top">
+      <div class="card-left">
+        <div class="repo-name">
+          <a href="${repo.html_url}" target="_blank"><span class="repo-owner">${repo.owner.login}</span>${repo.name}</a>
+          ${index===0?'<span class="featured-badge">top pick</span>':''}
+        </div>
+        <div class="tags">
+          ${repo.language?`<span class="tag tag-lang">${repo.language}</span>`:''}
+          <span class="tag tag-star">★ ${formatNumber(repo.stargazers_count)}</span>
+          <span class="tag tag-fork">⑂ ${formatNumber(repo.forks_count)}</span>
+          <span class="tag tag-updated ${stale?'stale':''}">⏱ ${timeAgo(repo.pushed_at)}</span>
+          ${repo._score>=80?'<span class="tag tag-hot">🔥 hot</span>':''}
+        </div>
+        ${repo.description?`<div class="repo-desc">${escHtml(repo.description)}</div>`:''}
+      </div>
+      <div class="score-badge ${cls}"><span>${grade}</span><span class="score-label">${repo._score}</span></div>
+    </div>
+    <div class="ai-summary" id="ai-${repo.id}">
+      <div class="ai-label">AI Analysis</div>
+      <span class="ai-text">analyzing...</span>
+    </div>
+    <div class="card-footer">
+      <div class="topics">${topics}</div>
+      <a class="gh-link" href="${repo.html_url}" target="_blank">${GH_SVG} view on github</a>
+    </div>`;
+  return div;
+}
+
+async function generateAISummaries(repos, query) {
+  const repoList = repos.map((r,i) =>
+    `${i+1}. ${r.full_name} — ${r.description||'no description'} | Stars: ${r.stargazers_count} | Lang: ${r.language||'N/A'} | Updated: ${timeAgo(r.pushed_at)}`
+  ).join('\n');
+
+  const prompt = `You are a senior developer helping another dev discover great GitHub repos.
+User searched for: "${query}"
+Repos:
+${repoList}
+
+For EACH repo (1-${repos.length}), write ONE sentence (max 20 words): what it's useful for + its standout quality (e.g. "most production-ready", "best for beginners", "underrated gem", "most actively maintained").
+Format: just number and sentence, one per line. Be specific. No generic filler.`;
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+      body: JSON.stringify({ model: GROQ_MODEL, max_tokens: 600, temperature: 0.4, messages: [{ role:'user', content:prompt }] })
+    });
+    if (!res.ok) throw new Error('Groq error');
+    const data = await res.json();
+    const lines = data.choices[0].message.content.split('\n').filter(l => /^\d+\./.test(l.trim()));
+    lines.forEach((line,i) => { if (i < repos.length) updateAISummary(repos[i].id, line.replace(/^\d+\.\s*/,'').trim()); });
+    repos.forEach(r => { const el = document.getElementById('ai-'+r.id); if(el) el.classList.add('loaded'); });
+  } catch(e) {
+    repos.forEach(r => {
+      const el = document.getElementById('ai-'+r.id);
+      if(el) { el.querySelector('.ai-text').textContent = r.description||'no summary available.'; el.classList.add('loaded'); }
+    });
+  }
+}
+
+function updateAISummary(id, text) {
+  const el = document.getElementById('ai-'+id);
+  if(!el) return;
+  el.querySelector('.ai-text').textContent = text;
+  el.classList.add('loaded');
+}
+
+function setLoading(show) {
+  document.getElementById('loader').classList.toggle('show', show);
+  const go = document.getElementById('go');
+  go.disabled = show; go.textContent = show ? '...' : 'Search →';
+}
+function setLoaderText(t) { document.getElementById('loader-text').textContent = t; }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+loadKey();
+</script>
+</body>
+</html>
